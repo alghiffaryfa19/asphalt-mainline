@@ -1,0 +1,1181 @@
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2026, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2026, Saran Thongplong <banstellazz@gmail.com>
+ */
+/dts-v1/;
+
+#include <dt-bindings/gpio/gpio.h>
+#include <dt-bindings/input/linux-event-codes.h>
+#include <dt-bindings/interrupt-controller/irq.h>
+#include <dt-bindings/pinctrl/qcom,pmic-gpio.h>
+#include <dt-bindings/phy/phy.h>
+#include <dt-bindings/regulator/qcom,rpmh-regulator.h>
+
+#include "sm8475.dtsi"
+#include "pm8350.dtsi"
+#include "pm8350c.dtsi"
+#include "pmk8350.dtsi"
+#include "pmr735a.dtsi"
+
+/delete-node/ &xbl_ramdump_mem;
+/delete-node/ &xbl_sc_mem;
+/delete-node/ &rmtfs_mem;
+
+/ {
+	model = "Lenovo Legion Y700 2nd gen";
+	compatible = "lenovo,asphalt", "qcom,sm8475";
+	chassis-type = "tablet";
+	region_country = "ROW";
+
+	qcom,msm-id = <531 0x10000>;
+	qcom,board-id = <0x10008 0>;
+
+	aliases {
+		serial0 = &uart20;
+	};
+
+	chosen {
+		#address-cells = <2>;
+		#size-cells = <2>;
+		ranges;
+
+		framebuffer: framebuffer@b8000000 {
+			compatible = "simple-framebuffer";
+			reg = <0x0 0xb8000000 0x0 0x2b00000>;
+			width = <1600>;
+			height = <2560>;
+			stride = <(1600 * 4)>;
+			format = "a8r8g8b8";
+			clocks = <&gcc GCC_DISP_HF_AXI_CLK>;
+		};
+	};
+
+	gpio-keys {
+		compatible = "gpio-keys";
+
+		pinctrl-0 = <&key_vol_up_default>;
+		pinctrl-names = "default";
+
+		key-volume-up {
+			label = "Volume Up";
+			gpios = <&pm8350_gpios 6 GPIO_ACTIVE_LOW>;
+			linux,code = <KEY_VOLUMEUP>;
+			debounce-interval = <15>;
+			wakeup-source;
+		};
+	};
+
+	vph_pwr: regulator-vph-pwr {
+		compatible = "regulator-fixed";
+		regulator-name = "vph_pwr";
+		regulator-min-microvolt = <3700000>;
+		regulator-max-microvolt = <3700000>;
+		regulator-always-on;
+		regulator-boot-on;
+	};
+
+	/* Both physical Type-C ports report CC state through the stock ADSP. */
+	pmic-glink {
+		compatible = "qcom,sm8450-pmic-glink", "qcom,pmic-glink";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		/* The two connectors share DWC3; neither owns its role switch. */
+		connector@0 {
+			compatible = "usb-c-connector";
+			reg = <0>;
+			power-role = "dual";
+			data-role = "dual";
+
+			/* Stock DP altmode client 0 uses the primary FSA4480. */
+			ports {
+				#address-cells = <1>;
+				#size-cells = <0>;
+
+				port@1 {
+					reg = <1>;
+					pmic_glink_dp_ss: endpoint {
+						remote-endpoint = <&usb_1_qmpphy_out>;
+					};
+				};
+
+				port@2 {
+					reg = <2>;
+					pmic_glink_dp_sbu: endpoint {
+						remote-endpoint = <&fsa4480_sbu>;
+					};
+				};
+			};
+		};
+
+		connector@1 {
+			compatible = "usb-c-connector";
+			reg = <1>;
+			power-role = "dual";
+			data-role = "dual";
+		};
+	};
+
+	wcn6855-pmu {
+		compatible = "qcom,wcn6855-pmu";
+
+		pinctrl-0 = <&bt_en>, <&wlan_en>, <&xo_clk_default>;
+		pinctrl-names = "default";
+
+		wlan-enable-gpios = <&tlmm 80 GPIO_ACTIVE_HIGH>;
+		bt-enable-gpios = <&tlmm 81 GPIO_ACTIVE_HIGH>;
+		swctrl-gpios = <&tlmm 82 GPIO_ACTIVE_HIGH>;
+		xo-clk-gpios = <&tlmm 204 GPIO_ACTIVE_HIGH>;
+
+		vddio-supply = <&pm8350_s10>;
+		vddaon-supply = <&pm8350_s11>;
+		vddpmu-supply = <&pm8350_s12>;
+		vddpmumx-supply = <&pmr735a_s2>;
+		vddpmucx-supply = <&pm8350_s11>;
+		vddrfa0p95-supply = <&pm8350_s11>;
+		vddrfa1p3-supply = <&pm8350_s12>;
+		vddrfa1p9-supply = <&pm8350c_s1>;
+		vddpcie1p3-supply = <&pm8350_s12>;
+		vddpcie1p9-supply = <&pm8350c_s1>;
+
+		regulators {
+			vreg_pmu_rfa_cmn_0p8: ldo0 {
+				regulator-name = "vreg_pmu_rfa_cmn_0p8";
+			};
+
+			vreg_pmu_aon_0p8: ldo1 {
+				regulator-name = "vreg_pmu_aon_0p8";
+			};
+
+			vreg_pmu_wlcx_0p8: ldo2 {
+				regulator-name = "vreg_pmu_wlcx_0p8";
+			};
+
+			vreg_pmu_wlmx_0p8: ldo3 {
+				regulator-name = "vreg_pmu_wlmx_0p8";
+			};
+
+			vreg_pmu_btcmx_0p8: ldo4 {
+				regulator-name = "vreg_pmu_btcmx_0p8";
+			};
+
+			vreg_pmu_pcie_1p8: ldo5 {
+				regulator-name = "vreg_pmu_pcie_1p8";
+			};
+
+			vreg_pmu_pcie_0p9: ldo6 {
+				regulator-name = "vreg_pmu_pcie_0p9";
+			};
+
+			vreg_pmu_rfa_0p8: ldo7 {
+				regulator-name = "vreg_pmu_rfa_0p8";
+			};
+
+			vreg_pmu_rfa_1p2: ldo8 {
+				regulator-name = "vreg_pmu_rfa_1p2";
+			};
+
+			vreg_pmu_rfa_1p7: ldo9 {
+				regulator-name = "vreg_pmu_rfa_1p7";
+			};
+		};
+	};
+
+	bl_vddpos_5p5: regulator-bl-vddpos {
+		compatible = "regulator-fixed";
+		regulator-name = "bl_vddpos_5p5";
+		regulator-min-microvolt = <5500000>;
+		regulator-max-microvolt = <5500000>;
+		gpio = <&tlmm 61 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	bl_vddneg_5p5: regulator-bl-vddneg {
+		compatible = "regulator-fixed";
+		regulator-name = "bl_vddneg_5p5";
+		regulator-min-microvolt = <5500000>;
+		regulator-max-microvolt = <5500000>;
+		gpio = <&tlmm 65 GPIO_ACTIVE_HIGH>;
+		enable-active-high;
+	};
+
+	reserved-memory {
+		xbl_ramdump_mem: memory@80640000 {
+			reg = <0x0 0x80640000 0x0 0x1c0000>;
+			no-map;
+		};
+
+		xbl_sc_mem: memory@a6e00000 {
+			reg = <0x0 0xa6e00000 0x0 0x40000>;
+			no-map;
+		};
+
+		splash_region: splash-region@b8000000 {
+			reg = <0x0 0xb8000000 0x0 0x2b00000>;
+			no-map;
+		};
+	};
+};
+
+/* Values from this TB320FC's stock Android device tree. */
+&cpu0 {
+	capacity-dmips-mhz = <1024>;
+	dynamic-power-coefficient = <100>;
+};
+
+&cpu1 {
+	capacity-dmips-mhz = <1024>;
+	dynamic-power-coefficient = <100>;
+};
+
+&cpu2 {
+	capacity-dmips-mhz = <1024>;
+	dynamic-power-coefficient = <100>;
+};
+
+&cpu3 {
+	capacity-dmips-mhz = <1024>;
+	dynamic-power-coefficient = <100>;
+};
+
+&cpu4 {
+	capacity-dmips-mhz = <2253>;
+	dynamic-power-coefficient = <257>;
+};
+
+&cpu5 {
+	capacity-dmips-mhz = <2253>;
+	dynamic-power-coefficient = <257>;
+};
+
+&cpu6 {
+	capacity-dmips-mhz = <2253>;
+	dynamic-power-coefficient = <257>;
+};
+
+&cpu7 {
+	capacity-dmips-mhz = <2386>;
+	dynamic-power-coefficient = <509>;
+};
+
+/* Stock TB320FC DDR BWMON v5: 64 KiB count unit, GIC SPI 81. */
+&soc {
+	pmu@19091000 {
+		compatible = "qcom,sc7280-llcc-bwmon";
+		reg = <0 0x19091000 0 0x1000>;
+		interrupts = <GIC_SPI 81 IRQ_TYPE_LEVEL_HIGH>;
+		interconnects = <&mc_virt MASTER_LLCC QCOM_ICC_TAG_ACTIVE_ONLY
+				 &mc_virt SLAVE_EBI1 QCOM_ICC_TAG_ACTIVE_ONLY>;
+		operating-points-v2 = <&ddr_bwmon_opp_table>;
+
+		ddr_bwmon_opp_table: opp-table {
+			compatible = "operating-points-v2";
+
+			/* Stock DDR MHz points multiplied by its four-byte bus width. */
+			opp-2188000 { opp-peak-kBps = <2188000>; };
+			opp-3072000 { opp-peak-kBps = <3072000>; };
+			opp-6220000 { opp-peak-kBps = <6220000>; };
+			opp-6832000 { opp-peak-kBps = <6832000>; };
+			opp-8368000 { opp-peak-kBps = <8368000>; };
+			opp-10944000 { opp-peak-kBps = <10944000>; };
+			opp-12784000 { opp-peak-kBps = <12784000>; };
+		};
+	};
+};
+
+&apps_rsc {
+	regulators-0 {
+		compatible = "qcom,pm8350-rpmh-regulators";
+		qcom,pmic-id = "b";
+
+		vdd-s1-supply = <&vph_pwr>;
+		vdd-s2-supply = <&vph_pwr>;
+		vdd-s3-supply = <&vph_pwr>;
+		vdd-s4-supply = <&vph_pwr>;
+		vdd-s5-supply = <&vph_pwr>;
+		vdd-s6-supply = <&vph_pwr>;
+		vdd-s7-supply = <&vph_pwr>;
+		vdd-s8-supply = <&vph_pwr>;
+		vdd-s9-supply = <&vph_pwr>;
+		vdd-s10-supply = <&vph_pwr>;
+		vdd-s11-supply = <&vph_pwr>;
+		vdd-s12-supply = <&vph_pwr>;
+		vdd-l2-l7-supply = <&vreg_bob>;
+		vdd-l3-l5-supply = <&vreg_bob>;
+		vdd-l6-l9-l10-supply = <&pm8350_s12>;
+
+		pm8350_s10: smps10 {
+			regulator-name = "pm8350_s10";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <1800000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_s11: smps11 {
+			regulator-name = "pm8350_s11";
+			regulator-min-microvolt = <848000>;
+			regulator-max-microvolt = <1104000>;
+		};
+
+		pm8350_s12: smps12 {
+			regulator-name = "pm8350_s12";
+			regulator-min-microvolt = <1256000>;
+			regulator-max-microvolt = <1256000>;
+		};
+
+		pm8350_l1: ldo1 {
+			regulator-name = "pm8350_l1";
+			regulator-min-microvolt = <830000>;
+			regulator-max-microvolt = <920000>;
+		};
+
+		pm8350_l2: ldo2 {
+			regulator-name = "pm8350_l2";
+			regulator-min-microvolt = <2700000>;
+			regulator-max-microvolt = <3300000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_l5: ldo5 {
+			regulator-name = "pm8350_l5";
+			regulator-min-microvolt = <880000>;
+			regulator-max-microvolt = <880000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_l6: ldo6 {
+			regulator-name = "pm8350_l6";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_l7: ldo7 {
+			regulator-name = "pm8350_l7";
+			regulator-min-microvolt = <2504000>;
+			regulator-max-microvolt = <2504000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350_l9: ldo9 {
+			regulator-name = "pm8350_l9";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	regulators-1 {
+		compatible = "qcom,pm8350c-rpmh-regulators";
+		qcom,pmic-id = "c";
+
+		vdd-s1-supply = <&vph_pwr>;
+		vdd-s2-supply = <&vph_pwr>;
+		vdd-s3-supply = <&vph_pwr>;
+		vdd-s4-supply = <&vph_pwr>;
+		vdd-s5-supply = <&vph_pwr>;
+		vdd-s6-supply = <&vph_pwr>;
+		vdd-s7-supply = <&vph_pwr>;
+		vdd-s8-supply = <&vph_pwr>;
+		vdd-s9-supply = <&vph_pwr>;
+		vdd-s10-supply = <&vph_pwr>;
+		vdd-l1-l12-supply = <&vreg_bob>;
+		vdd-l2-l8-supply = <&vreg_bob>;
+		vdd-l3-l4-l5-l7-l13-supply = <&vreg_bob>;
+		vdd-l6-l9-l11-supply = <&vreg_bob>;
+		vdd-bob-supply = <&vph_pwr>;
+
+		pm8350c_s1: smps1 {
+			regulator-name = "pm8350c_s1";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2024000>;
+		};
+
+		vreg_bob: bob {
+			regulator-min-microvolt = <3008000>;
+			regulator-max-microvolt = <3960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_AUTO>;
+		};
+
+		pm8350c_l10: ldo10 {
+			regulator-name = "pm8350c_l10";
+			regulator-min-microvolt = <1200000>;
+			regulator-max-microvolt = <1200000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350c_l6: ldo6 {
+			regulator-name = "pm8350c_l6";
+			regulator-min-microvolt = <1800000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+		pm8350c_l9: ldo9 {
+			regulator-name = "pm8350c_l9";
+			regulator-min-microvolt = <2960000>;
+			regulator-max-microvolt = <2960000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+
+
+		pm8350c_l12: ldo12 {
+			regulator-name = "pm8350c_l12";
+			regulator-min-microvolt = <1950000>;
+			regulator-max-microvolt = <1980000>;
+			regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+		};
+	};
+
+	regulators-2 {
+		compatible = "qcom,pmr735a-rpmh-regulators";
+		qcom,pmic-id = "e";
+
+		vdd-s1-supply = <&vph_pwr>;
+		vdd-s2-supply = <&vph_pwr>;
+		vdd-s3-supply = <&vph_pwr>;
+
+		pmr735a_s2: smps2 {
+			regulator-name = "pmr735a_s2";
+			regulator-min-microvolt = <500000>;
+			regulator-max-microvolt = <1040000>;
+		};
+	};
+};
+
+&qupv3_id_0 {
+	status = "okay";
+};
+
+&gpu {
+	status = "okay";
+};
+
+&gpu_opp_table {
+	/*
+	 * Android lists 900 MHz at TURBO_L1, but short tests showed no
+	 * repeatable gain over 862 MHz and higher GPU temperatures.
+	 * Revisit it with sustained workloads and external cooling.
+	 */
+	opp-862000000 {
+		opp-hz = /bits/ 64 <862000000>;
+		opp-level = <RPMH_REGULATOR_LEVEL_TURBO>;
+	};
+};
+
+&gpu_zap_shader {
+	firmware-name = "qcom/sm8475/lenovo/tb320fc/a730_zap.mdt";
+};
+
+&iris {
+	/* Both nonsecure context-bank SIDs match the Android TB320FC DT. */
+	/* Use the TB320FC's signed Gen2 image from Android vendor_a. */
+	firmware-name = "qcom/sm8475/lenovo/tb320fc/vpu20_4v.mbn";
+	status = "okay";
+};
+
+&qup_spi4_data_clk {
+	drive-strength = <6>;
+	bias-disable;
+};
+
+&spi4 {
+	status = "okay";
+
+	touchscreen@0 {
+		compatible = "novatek,nt36523n-spi";
+		reg = <0>;
+		spi-max-frequency = <9600000>;
+
+		interrupt-parent = <&tlmm>;
+		interrupts = <21 IRQ_TYPE_EDGE_RISING>;
+		reset-gpios = <&tlmm 20 GPIO_ACTIVE_LOW>;
+		firmware-name = "novatek/lenovo-tb320fc.bin";
+		panel = <&display_panel>;
+
+		pinctrl-0 = <&ts_reset_active>, <&ts_int_active>;
+		pinctrl-1 = <&ts_reset_suspend>, <&ts_int_suspend>;
+		pinctrl-names = "default", "sleep";
+
+		touchscreen-size-x = <16001>;
+		touchscreen-size-y = <25601>;
+	};
+};
+
+&i2c2 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	backlight: backlight@11 {
+		compatible = "lenovo,y700-ktz8866", "kinetic,ktz8866";
+		reg = <0x11>;
+		vddpos-supply = <&bl_vddpos_5p5>;
+		vddneg-supply = <&bl_vddneg_5p5>;
+		enable-gpios = <&tlmm 62 GPIO_ACTIVE_HIGH>;
+		current-num-sinks = <4>;
+		kinetic,enable-lcd-bias;
+	};
+};
+
+&i2c5 {
+	status = "okay";
+
+	/* Powered by the board; downstream does not control a supply here. */
+	typec-mux@43 {
+		compatible = "fcs,fsa4480";
+		reg = <0x43>;
+		mode-switch;
+		orientation-switch;
+
+		port {
+			fsa4480_sbu: endpoint {
+				remote-endpoint = <&pmic_glink_dp_sbu>;
+			};
+		};
+	};
+
+	eusb2_repeater: phy@4f {
+		compatible = "nxp,eusb2-repeater";
+		reg = <0x4f>;
+		#phy-cells = <0>;
+
+		vdd18-supply = <&pm8350_s10>;
+		vdd3-supply = <&pm8350_l2>;
+		reset-gpios = <&pm8350c_gpios 7 GPIO_ACTIVE_HIGH>;
+
+		/* The downstream 0xa2 repeater identifies as C2 at runtime. */
+		qcom,param-override-seq = <0x44 0x06 0x33 0x07 0x66 0x08
+					     0x02 0x09 0x03 0x0a>;
+	};
+};
+
+&qupv3_id_1 {
+	status = "okay";
+};
+
+&i2c13 {
+	clock-frequency = <400000>;
+	status = "okay";
+
+	spk1: speaker-amp@30 {
+		compatible = "cirrus,cs35l45";
+		reg = <0x30>;
+		interrupts-extended = <&tlmm 172 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-0 = <&spk1_irq_default>;
+		pinctrl-names = "default";
+		reset-gpios = <&tlmm 123 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <1>;
+		sound-name-prefix = "SPK1";
+		cirrus,dsp-part-name = "spk1-cs35l45";
+		cirrus,asp-sdout-hiz-ctrl = <3>;
+
+		cirrus,gpio-ctrl1 {
+			gpio-ctrl = <2>;
+		};
+	};
+
+	spk2: speaker-amp@31 {
+		compatible = "cirrus,cs35l45";
+		reg = <0x31>;
+		interrupts-extended = <&tlmm 1 IRQ_TYPE_LEVEL_LOW>;
+		pinctrl-0 = <&spk2_irq_default>;
+		pinctrl-names = "default";
+		reset-gpios = <&tlmm 123 GPIO_ACTIVE_HIGH>;
+		#sound-dai-cells = <1>;
+		sound-name-prefix = "SPK2";
+		cirrus,dsp-part-name = "spk2-cs35l45";
+		cirrus,asp-sdout-hiz-ctrl = <3>;
+
+		cirrus,gpio-ctrl1 {
+			gpio-ctrl = <2>;
+		};
+	};
+};
+
+&q6apmbedai {
+	#address-cells = <1>;
+	#size-cells = <0>;
+
+	dai@10 {
+		reg = <PRIMARY_MI2S_RX>;
+		clocks = <&q6prmcc LPASS_CLK_ID_PRI_MI2S_IBIT
+				   LPASS_CLK_ATTRIBUTE_COUPLE_NO>;
+		clock-names = "bclk";
+	};
+};
+
+&remoteproc_adsp {
+	firmware-name = "qcom/sm8475/lenovo/tb320fc/adsp.mdt";
+	status = "okay";
+};
+
+&sound {
+	compatible = "lenovo,y700-sndcard", "qcom,sm8450-sndcard";
+	model = "Lenovo-Y700";
+	pinctrl-0 = <&mi2s0_sck_default>, <&mi2s0_ws_default>,
+		    <&mi2s0_data0_default>;
+	pinctrl-names = "default";
+	audio-routing = "Speaker Left", "SPK1 SPK",
+			"Speaker Right", "SPK2 SPK";
+
+	speaker-playback-dai-link {
+		link-name = "Speaker Playback";
+
+		cpu {
+			sound-dai = <&q6apmbedai PRIMARY_MI2S_RX>;
+		};
+
+		codec {
+			sound-dai = <&spk1 0>, <&spk2 0>;
+		};
+
+		platform {
+			sound-dai = <&q6apm>;
+		};
+	};
+};
+
+&tlmm {
+	usb3_orientation_default: usb3-orientation-default-state {
+		pins = "gpio91";
+		function = "usb_phy";
+		drive-strength = <2>;
+		bias-disable;
+	};
+
+	spk1_irq_default: spk1-irq-default-state {
+		pins = "gpio172";
+		function = "gpio";
+		bias-pull-up;
+		input-enable;
+	};
+
+	spk2_irq_default: spk2-irq-default-state {
+		pins = "gpio1";
+		function = "gpio";
+		bias-pull-up;
+		input-enable;
+	};
+
+	mi2s0_sck_default: mi2s0-sck-default-state {
+		pins = "gpio126";
+		function = "mi2s0_sck";
+		drive-strength = <8>;
+		bias-disable;
+	};
+
+	mi2s0_ws_default: mi2s0-ws-default-state {
+		pins = "gpio129";
+		function = "mi2s0_ws";
+		drive-strength = <8>;
+		bias-disable;
+	};
+
+	mi2s0_data0_default: mi2s0-data0-default-state {
+		pins = "gpio127";
+		function = "mi2s0_data0";
+		drive-strength = <8>;
+		bias-disable;
+	};
+};
+
+
+&mdss {
+	status = "okay";
+};
+
+&mdss_dsi0 {
+	vdda-supply = <&pm8350_l9>;
+	qcom,dual-dsi-mode;
+	qcom,sync-dual-dsi;
+	qcom,master-dsi;
+	status = "okay";
+
+	display_panel: panel@0 {
+		compatible = "lenovo,y700-nt36523n";
+		reg = <0>;
+		vddio-supply = <&pm8350c_l12>;
+		reset-gpios = <&tlmm 0 GPIO_ACTIVE_LOW>;
+		backlight = <&backlight>;
+		rotation = <90>;
+
+		ports {
+			#address-cells = <1>;
+			#size-cells = <0>;
+
+			port@0 {
+				reg = <0>;
+
+				panel_in_0: endpoint {
+					remote-endpoint = <&mdss_dsi0_out>;
+				};
+			};
+
+			port@1 {
+				reg = <1>;
+
+				panel_in_1: endpoint {
+					remote-endpoint = <&mdss_dsi1_out>;
+				};
+			};
+		};
+	};
+};
+
+&mdss_dsi0_out {
+	data-lanes = <0 1 2>;
+	remote-endpoint = <&panel_in_0>;
+};
+
+&mdss_dsi0_phy {
+	vdds-supply = <&pm8350_l5>;
+	phy-type = <PHY_TYPE_CPHY>;
+	qcom,cphy-timing = /bits/ 8 <0x15 0x1d 0x06 0x19 0x07 0x02 0x04>;
+	status = "okay";
+};
+
+&mdss_dsi1 {
+	vdda-supply = <&pm8350_l9>;
+	qcom,dual-dsi-mode;
+	qcom,sync-dual-dsi;
+	assigned-clock-parents = <&mdss_dsi0_phy DSI_BYTE_PLL_CLK>,
+				 <&mdss_dsi0_phy DSI_PIXEL_PLL_CLK>;
+	status = "okay";
+};
+
+&mdss_dsi1_out {
+	data-lanes = <0 1 2>;
+	remote-endpoint = <&panel_in_1>;
+};
+
+&mdss_dsi1_phy {
+	vdds-supply = <&pm8350_l5>;
+	phy-type = <PHY_TYPE_CPHY>;
+	qcom,cphy-timing = /bits/ 8 <0x15 0x1d 0x06 0x19 0x07 0x02 0x04>;
+	status = "okay";
+};
+
+&pm8350_gpios {
+	key_vol_up_default: key-vol-up-state {
+		pins = "gpio6";
+		function = PMIC_GPIO_FUNC_NORMAL;
+		input-enable;
+		bias-pull-up;
+		power-source = <1>;
+	};
+};
+
+&pon_pwrkey {
+	status = "okay";
+};
+
+&pon_resin {
+	linux,code = <KEY_VOLUMEDOWN>;
+	wakeup-source;
+	status = "okay";
+};
+
+&tlmm {
+	ts_int_active: touchscreen-int-active-state {
+		pins = "gpio21";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-up;
+		output-disable;
+	};
+
+	ts_reset_active: touchscreen-reset-active-state {
+		pins = "gpio20";
+		function = "gpio";
+		drive-strength = <8>;
+		bias-pull-up;
+		output-low;
+	};
+
+	ts_int_suspend: touchscreen-int-suspend-state {
+		pins = "gpio21";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+
+	ts_reset_suspend: touchscreen-reset-suspend-state {
+		pins = "gpio20";
+		function = "gpio";
+		drive-strength = <2>;
+		bias-pull-down;
+	};
+};
+
+&pcie0 {
+	max-link-speed = <2>;
+	status = "okay";
+};
+
+&sdhc_2 {
+	vmmc-supply = <&pm8350c_l9>;
+	vqmmc-supply = <&pm8350c_l6>;
+	pinctrl-0 = <&sdc2_default_state &sdc2_cd_default>;
+	pinctrl-1 = <&sdc2_sleep_state &sdc2_cd_default>;
+	pinctrl-names = "default", "sleep";
+	cd-gpios = <&tlmm 92 GPIO_ACTIVE_HIGH>;
+	no-sdio;
+	no-mmc;
+	status = "okay";
+};
+
+&pcie0_phy {
+	compatible = "qcom,sm8475-qmp-gen3x1-pcie-phy";
+	vdda-phy-supply = <&pm8350_l5>;
+	vdda-pll-supply = <&pm8350_l6>;
+	status = "okay";
+};
+
+&pcieport0 {
+	wifi@0 {
+		compatible = "pci17cb,1103";
+		reg = <0x10000 0x0 0x0 0x0 0x0>;
+
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn_0p8>;
+		vddaon-supply = <&vreg_pmu_aon_0p8>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p8>;
+		vddpcie1p8-supply = <&vreg_pmu_pcie_1p8>;
+		vddpcie0p9-supply = <&vreg_pmu_pcie_0p9>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p8-supply = <&vreg_pmu_rfa_1p7>;
+	};
+};
+
+&tlmm {
+	sdc2_cd_default: sdc2-cd-default-state {
+		pins = "gpio92";
+		function = "gpio";
+		bias-pull-up;
+		drive-strength = <2>;
+	};
+
+	bt_en: bt-en-state {
+		pins = "gpio81";
+		function = "gpio";
+		drive-strength = <16>;
+		output-low;
+		bias-pull-down;
+	};
+
+	wlan_en: wlan-en-state {
+		pins = "gpio80";
+		function = "gpio";
+		drive-strength = <16>;
+		output-low;
+		bias-pull-down;
+	};
+
+	xo_clk_default: xo-clk-state {
+		pins = "gpio204";
+		function = "gpio";
+		drive-strength = <16>;
+		output-low;
+		bias-pull-down;
+	};
+};
+
+&qupv3_id_2 {
+	status = "okay";
+};
+
+&uart20 {
+	status = "okay";
+
+	bluetooth {
+		compatible = "qcom,wcn6855-bt";
+
+		vddrfacmn-supply = <&vreg_pmu_rfa_cmn_0p8>;
+		vddaon-supply = <&vreg_pmu_aon_0p8>;
+		vddwlcx-supply = <&vreg_pmu_wlcx_0p8>;
+		vddwlmx-supply = <&vreg_pmu_wlmx_0p8>;
+		vddbtcmx-supply = <&vreg_pmu_btcmx_0p8>;
+		vddrfa0p8-supply = <&vreg_pmu_rfa_0p8>;
+		vddrfa1p2-supply = <&vreg_pmu_rfa_1p2>;
+		vddrfa1p7-supply = <&vreg_pmu_rfa_1p7>;
+	};
+};
+
+&usb_1 {
+	dr_mode = "otg";
+	role-switch-default-mode = "peripheral";
+	maximum-speed = "super-speed-plus";
+	status = "okay";
+};
+
+&usb_1_hsphy {
+	vdd-supply = <&pm8350_l5>;
+	vdda12-supply = <&pm8350c_l10>;
+	phys = <&eusb2_repeater>;
+	status = "okay";
+};
+
+&usb_1_qmpphy {
+	compatible = "qcom,sm8475-qmp-usb3-dp-phy";
+	vdda-phy-supply = <&pm8350_l1>;
+	vdda-pll-supply = <&pm8350c_l10>;
+	pinctrl-0 = <&usb3_orientation_default>;
+	pinctrl-names = "default";
+	qcom,hardware-port-select;
+	status = "okay";
+};
+
+&ufs_mem_hc {
+	/* TB320FC stock UFS core and UniPro clocks support 75--850 MHz. */
+	freq-table-hz =
+		<75000000 850000000>,
+		<0 0>,
+		<0 0>,
+		<75000000 850000000>,
+		<0 0>,
+		<0 0>,
+		<0 0>,
+		<0 0>;
+
+	reset-gpios = <&tlmm 210 GPIO_ACTIVE_LOW>;
+
+	vcc-supply = <&pm8350_l7>;
+	vcc-max-microamp = <1100000>;
+	vccq-supply = <&pm8350_l9>;
+	vccq-max-microamp = <1200000>;
+
+	status = "okay";
+};
+
+&ufs_mem_phy {
+	vdda-phy-supply = <&pm8350_l5>;
+	vdda-pll-supply = <&pm8350c_l10>;
+
+	status = "okay";
+};
+
+/* TB320FC production camera wiring, from its vendor DT and sensor modules. */
+/ {
+ camera_io: regulator-camera-io {
+  compatible = "regulator-fixed";
+  regulator-name = "camera-io";
+  regulator-min-microvolt = <1800000>;
+  regulator-max-microvolt = <1800000>;
+  gpio = <&tlmm 122 GPIO_ACTIVE_HIGH>;
+  enable-active-high;
+  startup-delay-us = <233>;
+ };
+};
+
+&apps_rsc {
+ regulators-1 {
+  pm8350c_l4: ldo4 {
+   regulator-name = "pm8350c_l4";
+   regulator-min-microvolt = <1800000>;
+   regulator-max-microvolt = <1800000>;
+   regulator-initial-mode = <RPMH_REGULATOR_MODE_HPM>;
+  };
+ };
+};
+
+&camcc { status = "okay"; };
+&cci0 { status = "okay"; };
+&cci1 { status = "okay"; };
+&cci1_i2c0 {
+ status = "okay";
+ clock-frequency = <400000>;
+ camera_pmic: regulator@29 {
+  compatible = "willsemi,wl2864c";
+  reg = <0x29>;
+  vdd-supply = <&pm8350c_l4>;
+  vio-supply = <&camera_io>;
+  regulators {
+   camera_ldo1: ldo1 {
+    regulator-name = "camera-ldo1";
+    regulator-min-microvolt = <1100000>;
+    regulator-max-microvolt = <1100000>;
+   };
+   camera_ldo2: ldo2 {
+    regulator-name = "camera-ldo2";
+    regulator-min-microvolt = <1200000>;
+    regulator-max-microvolt = <1200000>;
+   };
+   camera_ldo3: ldo3 {
+    regulator-name = "camera-ldo3";
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+   };
+   camera_ldo4: ldo4 {
+    regulator-name = "camera-ldo4";
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+   };
+   camera_ldo5: ldo5 {
+    regulator-name = "camera-ldo5";
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+   };
+   camera_ldo6: ldo6 {
+    regulator-name = "camera-ldo6";
+    regulator-min-microvolt = <2800000>;
+    regulator-max-microvolt = <2800000>;
+   };
+  };
+ };
+};
+
+&cci0_i2c0 {
+ status = "okay";
+ clock-frequency = <400000>;
+ hi1339: camera@20 {
+  compatible = "hynix,hi1339";
+  reg = <0x20>;
+  clocks = <&camcc CAM_CC_MCLK0_CLK>;
+  clock-names = "xclk";
+  assigned-clocks = <&camcc CAM_CC_MCLK0_CLK>;
+  assigned-clock-rates = <24000000>;
+  pinctrl-names = "default";
+  pinctrl-0 = <&camera_mclk0>;
+  reset-gpios = <&tlmm 25 GPIO_ACTIVE_LOW>;
+  vddio-supply = <&camera_io>;
+  vdd-supply = <&pm8350c_l4>;
+  avdd-supply = <&camera_ldo4>;
+  dvdd-supply = <&camera_ldo1>;
+  orientation = <1>;
+  rotation = <270>;
+  port {
+   hi1339_ep: endpoint {
+    remote-endpoint = <&csiphy0_ep>;
+    data-lanes = <1 2 3 4>;
+    link-frequencies = /bits/ 64 <608000000>;
+   };
+  };
+ };
+};
+
+&cci0_i2c1 {
+ status = "okay";
+ clock-frequency = <400000>;
+ s5k4h7: camera@10 {
+  compatible = "samsung,s5k4h7";
+  reg = <0x10>;
+  clocks = <&camcc CAM_CC_MCLK2_CLK>;
+  clock-names = "xclk";
+  assigned-clocks = <&camcc CAM_CC_MCLK2_CLK>;
+  assigned-clock-rates = <24000000>;
+  pinctrl-names = "default";
+  pinctrl-0 = <&camera_mclk2>;
+  reset-gpios = <&tlmm 117 GPIO_ACTIVE_LOW>;
+  vddio-supply = <&camera_io>;
+  vdd-supply = <&pm8350c_l4>;
+  avdd-supply = <&camera_ldo3>;
+  dvdd-supply = <&camera_ldo2>;
+  orientation = <0>;
+  rotation = <270>;
+  port {
+   s5k4h7_ep: endpoint {
+    remote-endpoint = <&csiphy2_ep>;
+    data-lanes = <1 2 3 4>;
+    link-frequencies = /bits/ 64 <340000000>;
+   };
+  };
+ };
+};
+
+&cci1_i2c0 {
+ status = "okay";
+ clock-frequency = <400000>;
+ sc202cs: camera@36 {
+  compatible = "smartsens,sc202cs";
+  reg = <0x36>;
+  clocks = <&camcc CAM_CC_MCLK1_CLK>;
+  clock-names = "xclk";
+  assigned-clocks = <&camcc CAM_CC_MCLK1_CLK>;
+  assigned-clock-rates = <24000000>;
+  pinctrl-names = "default";
+  pinctrl-0 = <&camera_mclk1>;
+  reset-gpios = <&tlmm 24 GPIO_ACTIVE_LOW>;
+  vddio-supply = <&camera_io>;
+  vdd-supply = <&pm8350c_l4>;
+  avdd-supply = <&camera_ldo6>;
+  orientation = <1>;
+  rotation = <270>;
+  port {
+   sc202cs_ep: endpoint {
+    remote-endpoint = <&csiphy1_ep>;
+    data-lanes = <1>;
+    link-frequencies = /bits/ 64 <360000000>;
+   };
+  };
+ };
+};
+
+&camss {
+ vdda-phy-supply = <&pm8350_l5>;
+ vdda-pll-supply = <&pm8350c_l10>;
+ status = "okay";
+ ports {
+  #address-cells = <1>;
+  #size-cells = <0>;
+  port@0 {
+   reg = <0>;
+   csiphy0_ep: endpoint {
+    remote-endpoint = <&hi1339_ep>;
+    clock-lanes = <7>;
+    data-lanes = <0 1 2 3>;
+   };
+  };
+  port@2 {
+   reg = <2>;
+   csiphy2_ep: endpoint {
+    remote-endpoint = <&s5k4h7_ep>;
+    clock-lanes = <7>;
+    data-lanes = <0 1 2 3>;
+   };
+  };
+  port@1 {
+   reg = <1>;
+   csiphy1_ep: endpoint {
+    remote-endpoint = <&sc202cs_ep>;
+    clock-lanes = <7>;
+    data-lanes = <0>;
+   };
+  };
+ };
+};
+
+&tlmm {
+ camera_mclk0: camera-mclk0-state {
+  pins = "gpio100";
+  function = "cam_mclk";
+  drive-strength = <2>;
+  bias-disable;
+ };
+ camera_mclk1: camera-mclk1-state {
+  pins = "gpio101";
+  function = "cam_mclk";
+  drive-strength = <2>;
+  bias-disable;
+ };
+ camera_mclk2: camera-mclk2-state {
+  pins = "gpio102";
+  function = "cam_mclk";
+  drive-strength = <2>;
+  bias-disable;
+ };
+};
+
+/* DisplayPort is wired to the primary Type-C connector (GLINK port 0). */
+&mdss_dp0 {
+	status = "okay";
+};
+
+&mdss_dp0_out {
+	data-lanes = <0 1 2 3>;
+};
+
+&usb_1_qmpphy_out {
+	remote-endpoint = <&pmic_glink_dp_ss>;
+};
